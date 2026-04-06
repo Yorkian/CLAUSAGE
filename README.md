@@ -47,13 +47,9 @@ git clone https://github.com/Yorkian/CLAUSEAGE.git
 4. Select the cloned `CLAUSEAGE` directory
 5. Open any `claude.ai/chat/` page — the widget appears in the bottom-right corner
 
-### From Chrome Web Store
+### From [Chrome Web Store](https://chromewebstore.google.com/detail/clauseage/fcokdblijmjihpghecfjagjnlmjgaidb)
 
-[Chrome Web Store](https://chromewebstore.google.com/detail/clauseage/fcokdblijmjihpghecfjagjnlmjgaidb)
-
-### From Greasy Fork
-
-[Greasy Fork](https://greasyfork.org/en/scripts/572450-clauseage)
+### From [Greasy Fork](https://greasyfork.org/en/scripts/572450-clauseage)
 
 ## File Structure
 
