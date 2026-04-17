@@ -9,6 +9,7 @@
   const POLL_INTERVAL = 500;
   const MAX_POLLS = 40;
   const AUTO_REFRESH_MS = 5 * 60 * 1000;
+  const NARROW_THRESHOLD = 1300;
 
   let autoRefreshTimer = null;
   let lastRefreshTime = null;
@@ -64,6 +65,17 @@
     }
   }
 
+  // ── Narrow-mode helpers ──
+  function isNarrowMode() {
+    return window.innerWidth < NARROW_THRESHOLD;
+  }
+
+  function updateNarrowMode() {
+    var w = document.getElementById(WIDGET_ID);
+    if (!w) return;
+    w.classList.toggle('cuw-narrow', isNarrowMode());
+  }
+
   // ── Widget creation ──
   function ensureWidget() {
     if (document.getElementById(WIDGET_ID)) return;
@@ -77,7 +89,9 @@
     wrap.id = WIDGET_ID;
     wrap.innerHTML =
       '<div class="cuw-header" id="cuw-drag-handle">' +
-        '<span class="cuw-title">CLAUSEAGE</span>' +
+        '<span class="cuw-title">' +
+          '<span class="cuw-title-brand">CLAUSAGE</span>' +
+        '</span>' +
         '<div class="cuw-actions">' +
           '<button class="cuw-btn" id="cuw-refresh" title="Refresh">' +
             '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
@@ -105,13 +119,19 @@
         savedTop = saved.top;
       }
     } catch (_) {}
+
+    updateNarrowMode();
     applyPosition(wrap);
 
     initDrag(wrap, document.getElementById('cuw-drag-handle'));
 
     window.addEventListener('resize', function () {
       var w = document.getElementById(WIDGET_ID);
-      if (w) applyPosition(w);
+      if (!w) return;
+      updateNarrowMode();
+      applyPosition(w);
+      var line = document.getElementById('cuw-updated-line');
+      if (line) line.textContent = getRelativeTimeText();
     });
 
     var minBtn = document.getElementById('cuw-minimize');
@@ -211,7 +231,6 @@
     if (!allText || allText.includes('Sign in') || allText.includes('Log in')) return null;
 
     // ── Extract plan name (e.g. "Pro", "Team", "Free") ──
-    // It appears near "Plan usage limits" as a badge
     var planWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
     while (planWalker.nextNode()) {
       var ptxt = planWalker.currentNode.textContent.trim();
@@ -221,29 +240,7 @@
       }
     }
 
-    // ── Detect Current balance globally ──
-    var currentBalance = null;
-    var balWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
-    while (balWalker.nextNode()) {
-      if (/current balance/i.test(balWalker.currentNode.textContent.trim())) {
-        // Look at nearby sibling/parent for dollar amount
-        var balEl = balWalker.currentNode.parentElement;
-        for (var d = 0; d < 5 && balEl; d++) {
-          var balText = balEl.innerText || '';
-          var balMatch = balText.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
-          if (balMatch) {
-            currentBalance = parseFloat(balMatch[1].replace(/,/g, ''));
-            break;
-          }
-          balEl = balEl.parentElement;
-        }
-        break;
-      }
-    }
-
-    var hideExtraUsage = (currentBalance === null || currentBalance === 0);
-
-    // ── Find "% used" sections ──
+    // ── Pass 1: "% used" rows (Current session, All models, Claude Design, Extra usage $ spent) ──
     var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
     var usageTexts = [];
     while (walker.nextNode()) {
@@ -261,38 +258,95 @@
 
       var label = '', resetInfo = '';
       lines.forEach(function (line) {
-        if (/current session|all models/i.test(line)) label = line;
-        if (/resets?\s/i.test(line)) resetInfo = line;
+        if (/current session|all models|claude design/i.test(line) && !label) label = line;
+        if (/resets?\s/i.test(line) && !resetInfo) resetInfo = line;
       });
       if (!label) {
-        label = lines.find(function (l) { return !l.includes('% used') && !l.includes('Resets') && !l.includes('Learn more'); }) || 'Unknown';
+        label = lines.find(function (l) {
+          return !l.includes('% used') && !l.includes('Resets') && !l.includes('Learn more');
+        }) || 'Unknown';
       }
 
-      // Filter: if label contains "$" (e.g. "$0.00 spent"), it's Extra usage
-      if (/\$/.test(label) && hideExtraUsage) return;
+      // Filter rule: Current session / All models always show; everything else hide when 0%.
+      var alwaysShow = /current session|all models/i.test(label);
+      if (!alwaysShow && pct === 0) return;
 
-      data.sections.push({ type: 'pct', label: label, pct: pct, resetInfo: resetInfo });
+      data.sections.push({
+        type: 'pct',
+        label: label,
+        pct: pct,
+        resetInfo: resetInfo
+      });
     });
+
+    // ── Pass 2: Additional features "X / Y" rows (e.g. Daily included routine runs) ──
+    var routineWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
+    while (routineWalker.nextNode()) {
+      var rtxt = routineWalker.currentNode.textContent.trim();
+      if (/routine runs?/i.test(rtxt)) {
+        var blockEl = routineWalker.currentNode.parentElement;
+        for (var d = 0; d < 8 && blockEl; d++) {
+          var btext = blockEl.innerText || '';
+          var fracMatch = btext.match(/(\d+)\s*\/\s*(\d+)/);
+          if (fracMatch) {
+            var cur = parseInt(fracMatch[1], 10);
+            var tot = parseInt(fracMatch[2], 10);
+            // Filter rule: Additional features hide if value is 0.
+            if (cur > 0 && tot > 0) {
+              data.sections.push({
+                type: 'frac',
+                label: 'Routine runs',
+                current: cur,
+                total: tot,
+                resetInfo: ''
+              });
+            }
+            break;
+          }
+          blockEl = blockEl.parentElement;
+        }
+        break;
+      }
+    }
 
     return data.sections.length > 0 ? data : null;
   }
 
+  // Find the tightest ancestor that still only contains ONE "% used" occurrence.
+  // As we walk upward, once we hit a level with 2+ "% used" we've crossed into
+  // a sibling row — return the last single-occurrence candidate.
   function findAncestorBlock(node) {
     var el = node.parentElement;
+    var candidate = null;
     var depth = 0;
     while (el && depth < 15) {
       var text = el.innerText || '';
-      if ((text.includes('Resets') || text.includes('Reset')) && text.includes('% used')) return el;
+      var count = (text.match(/% used/g) || []).length;
+      if (count >= 2) {
+        return candidate || el;
+      }
+      if (count === 1) {
+        candidate = el;
+      }
       el = el.parentElement;
       depth++;
     }
-    return node.parentElement && node.parentElement.parentElement && node.parentElement.parentElement.parentElement || null;
+    return candidate;
   }
 
   // ── Relative time + ticker ──
   function getRelativeTimeText() {
     if (!lastRefreshTime) return '';
     var elapsed = Math.floor((Date.now() - lastRefreshTime) / 1000);
+    if (isNarrowMode()) {
+      if (elapsed < 30)  return 'just now';
+      if (elapsed < 60)  return '30s ago';
+      if (elapsed < 120) return '1m ago';
+      if (elapsed < 180) return '2m ago';
+      if (elapsed < 240) return '3m ago';
+      if (elapsed < 290) return '4m ago';
+      return 'refreshing…';
+    }
     if (elapsed < 30)  return 'Updated: just now';
     if (elapsed < 60)  return 'Updated: half a minute ago';
     if (elapsed < 120) return 'Updated: a minute ago';
@@ -314,6 +368,13 @@
     }, 1000);
   }
 
+  // ── Shorten reset info for narrow mode ──
+  function shortenReset(s) {
+    return (s || '')
+      .replace(/^Resets\s+/i, '')
+      .replace(/\s*(AM|PM)\s*$/i, '');
+  }
+
   // ── Render data ──
   function renderData(data) {
     var body = document.getElementById('cuw-body');
@@ -328,32 +389,51 @@
     var titleEl = document.querySelector('#' + WIDGET_ID + ' .cuw-title');
     if (titleEl) {
       if (data.plan) {
-        titleEl.innerHTML = 'CLAUSEAGE <span class="cuw-plan">| ' + escapeHtml(data.plan) + '</span>';
+        titleEl.classList.add('has-plan');
+        titleEl.innerHTML =
+          '<span class="cuw-title-brand">CLAUSAGE</span>' +
+          '<span class="cuw-plan-sep"> | </span>' +
+          '<span class="cuw-plan">' + escapeHtml(data.plan) + '</span>';
       } else {
-        titleEl.textContent = 'CLAUSEAGE';
+        titleEl.classList.remove('has-plan');
+        titleEl.innerHTML = '<span class="cuw-title-brand">CLAUSAGE</span>';
       }
     }
 
     var html = '';
     data.sections.forEach(function (s) {
-      var barColor = s.pct >= 90 ? '#ef4444' : s.pct >= 70 ? '#f59e0b' : '#6b8afd';
+      var barWidth, rightText;
+      if (s.type === 'frac') {
+        barWidth = s.total > 0 ? Math.round((s.current / s.total) * 100) : 0;
+        rightText = s.current + '/' + s.total;
+      } else {
+        barWidth = s.pct;
+        rightText = s.pct + '%';
+      }
+      var barColor = barWidth >= 90 ? '#ef4444' : barWidth >= 70 ? '#f59e0b' : '#6b8afd';
+      var shortR = shortenReset(s.resetInfo);
       html +=
         '<div class="cuw-row">' +
           '<div class="cuw-row-top">' +
             '<span class="cuw-label">' + escapeHtml(s.label) + '</span>' +
-            '<span class="cuw-pct">' + s.pct + '%</span>' +
+            '<span class="cuw-pct">' + escapeHtml(rightText) + '</span>' +
           '</div>' +
           '<div class="cuw-bar-track">' +
-            '<div class="cuw-bar-fill" style="width:' + s.pct + '%;background:' + barColor + '"></div>' +
+            '<div class="cuw-bar-fill" style="width:' + barWidth + '%;background:' + barColor + '"></div>' +
           '</div>' +
-          (s.resetInfo ? '<div class="cuw-reset">' + escapeHtml(s.resetInfo) + '</div>' : '') +
+          (s.resetInfo
+            ? '<div class="cuw-reset">' +
+                '<span class="cuw-reset-full">' + escapeHtml(s.resetInfo) + '</span>' +
+                '<span class="cuw-reset-short">' + escapeHtml(shortR) + '</span>' +
+              '</div>'
+            : '') +
         '</div>';
     });
 
     html +=
       '<div class="cuw-footer">' +
         '<span class="cuw-updated" id="cuw-updated-line">' + getRelativeTimeText() + '</span>' +
-        '<a class="cuw-github" href="https://github.com/Yorkian/CLAUSEAGE" target="_blank" title="GitHub">' + GITHUB_SVG + '</a>' +
+        '<a class="cuw-github" href="https://github.com/Yorkian/CLAUSAGE" target="_blank" title="GitHub">' + GITHUB_SVG + '</a>' +
       '</div>';
 
     body.innerHTML = html;

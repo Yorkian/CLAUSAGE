@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "CLAUSEAGE",
-  "version": "1.0.0",
+  "name": "CLAUSAGE",
+  "version": "1.1.0",
   "description": "A compact floating widget that displays your Claude AI usage limits in real time on chat pages",
   "permissions": [],
   "content_scripts": [

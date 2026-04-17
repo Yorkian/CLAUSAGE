@@ -16,7 +16,7 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   user-select: none;
-  transition: box-shadow 0.2s, opacity 0.2s;
+  transition: box-shadow 0.2s, opacity 0.2s, width 0.2s;
 }
 
 #claude-usage-widget.cuw-dragging {
@@ -50,6 +50,21 @@
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.cuw-title-brand {
+  /* Default: shown. Narrow + has-plan hides it. */
+}
+
+.cuw-plan-sep {
+  text-transform: none;
+  font-weight: 500;
+  opacity: 0.75;
 }
 
 .cuw-plan {
@@ -61,6 +76,7 @@
 .cuw-actions {
   display: flex;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 .cuw-btn {
@@ -171,6 +187,11 @@
   margin-top: 2px;
 }
 
+/* Default: only full reset label is shown */
+.cuw-reset-short {
+  display: none;
+}
+
 .cuw-balance {
   color: #22c55e;
 }
@@ -187,6 +208,10 @@
 .cuw-updated {
   font-size: 10px;
   color: #bbb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .cuw-github {
@@ -196,10 +221,115 @@
   text-decoration: none;
   transition: color 0.15s;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .cuw-github:hover {
   color: #888;
+}
+
+/* ───────────────────────────────────────── */
+/* ── Narrow mode: browser width < 1300 ── */
+/* ───────────────────────────────────────── */
+#claude-usage-widget.cuw-narrow {
+  width: 84px;
+}
+
+/* Title: hide brand + sep when plan is available. Otherwise keep brand. */
+.cuw-narrow .cuw-title.has-plan .cuw-title-brand,
+.cuw-narrow .cuw-title.has-plan .cuw-plan-sep {
+  display: none;
+}
+
+.cuw-narrow .cuw-title {
+  font-size: 10px;
+  letter-spacing: 0.2px;
+}
+
+.cuw-narrow .cuw-plan {
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 1;
+  letter-spacing: 0.3px;
+  color: #666;
+}
+
+.cuw-narrow .cuw-header {
+  padding: 5px 6px;
+}
+
+.cuw-narrow .cuw-btn {
+  width: 18px;
+  height: 18px;
+}
+
+.cuw-narrow #cuw-body {
+  padding: 6px 6px 4px;
+}
+
+.cuw-narrow .cuw-row {
+  margin-bottom: 8px;
+}
+
+.cuw-narrow .cuw-row:last-child {
+  margin-bottom: 2px;
+}
+
+/* Stack label / value / reset vertically */
+.cuw-narrow .cuw-row-top {
+  display: block;
+  margin-bottom: 0;
+}
+
+.cuw-narrow .cuw-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.cuw-narrow .cuw-pct {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+/* Hide progress bar entirely in narrow mode */
+.cuw-narrow .cuw-bar-track {
+  display: none;
+}
+
+/* Swap reset label: show the short form */
+.cuw-narrow .cuw-reset-full {
+  display: none;
+}
+
+.cuw-narrow .cuw-reset-short {
+  display: inline;
+}
+
+.cuw-narrow .cuw-reset {
+  font-size: 9px;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cuw-narrow .cuw-footer {
+  margin-top: 3px;
+  padding-top: 3px;
+}
+
+.cuw-narrow .cuw-updated {
+  font-size: 9px;
 }
 
 /* ── Dark mode (claude.ai uses dark theme) ── */
@@ -228,6 +358,10 @@
   .cuw-github:hover { color: #aaa; }
   .cuw-loading { color: #777; }
   .cuw-empty { color: #666; }
+
+  .cuw-narrow .cuw-label { color: #aaa; }
+  .cuw-narrow .cuw-pct { color: #eee; }
+  .cuw-narrow .cuw-plan { color: #aaa; }
 }
 
 /* ── Also detect claude.ai's own dark class ── */
@@ -289,3 +423,15 @@ body.dark .cuw-github,
 html[data-theme="dark"] .cuw-github:hover,
 body.dark .cuw-github:hover,
 [data-mode="dark"] .cuw-github:hover { color: #aaa; }
+
+html[data-theme="dark"] .cuw-narrow .cuw-label,
+body.dark .cuw-narrow .cuw-label,
+[data-mode="dark"] .cuw-narrow .cuw-label { color: #aaa; }
+
+html[data-theme="dark"] .cuw-narrow .cuw-pct,
+body.dark .cuw-narrow .cuw-pct,
+[data-mode="dark"] .cuw-narrow .cuw-pct { color: #eee; }
+
+html[data-theme="dark"] .cuw-narrow .cuw-plan,
+body.dark .cuw-narrow .cuw-plan,
+[data-mode="dark"] .cuw-narrow .cuw-plan { color: #aaa; }
