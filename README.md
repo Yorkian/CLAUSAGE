@@ -1,4 +1,4 @@
-# CLAUSEAGE
+# CLAUSAGE
 
 A compact floating widget that displays your Claude AI usage limits in real time — right on your chat page.
 
@@ -10,7 +10,7 @@ No more switching tabs to check how much quota you have left.
 
 - **Current session** — percentage used, progress bar, time until reset
 - **Weekly limits** — percentage used, progress bar, next reset day
-- **Plan badge** — your subscription tier displayed in the title bar (e.g. `CLAUSEAGE | Pro`)
+- **Plan badge** — your subscription tier displayed in the title bar (e.g. `CLAUSAGE | Pro`)
 - **Extra usage** — only appears when your Current balance is above $0
 - **Live countdown** — "Updated: just now" → "half a minute ago" → ... → "Refreshing soon"
 
@@ -27,7 +27,7 @@ No more switching tabs to check how much quota you have left.
 
 ## How It Works
 
-CLAUSEAGE injects a hidden same-origin iframe loading `claude.ai/settings/usage`, waits for React to render the usage data, parses the DOM, and displays the results in the floating widget. The iframe is destroyed immediately after extraction.
+CLAUSAGE injects a hidden same-origin iframe loading `claude.ai/settings/usage`, waits for React to render the usage data, parses the DOM, and displays the results in the floating widget. The iframe is destroyed immediately after extraction.
 
 It also monkey-patches `history.pushState` / `replaceState` and listens for `popstate` to handle Claude's SPA navigation — so the widget correctly appears and disappears as you move between chat and non-chat pages.
 
@@ -38,23 +38,23 @@ If you're not logged in, the widget stays hidden.
 ### From source (Developer mode)
 
 ```bash
-git clone https://github.com/Yorkian/CLAUSEAGE.git
+git clone https://github.com/Yorkian/CLAUSAGE.git
 ```
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode** (top right toggle)
 3. Click **Load unpacked**
-4. Select the cloned `CLAUSEAGE` directory
+4. Select the cloned `CLAUSAGE` directory
 5. Open any `claude.ai/chat/` page — the widget appears in the bottom-right corner
 
-### From [Chrome Web Store](https://chromewebstore.google.com/detail/clauseage/fcokdblijmjihpghecfjagjnlmjgaidb)
+### From [Chrome Web Store](https://chromewebstore.google.com/detail/CLAUSAGE/fcokdblijmjihpghecfjagjnlmjgaidb)
 
-### From [Greasy Fork](https://greasyfork.org/en/scripts/572450-clauseage)
+### From [Greasy Fork](https://greasyfork.org/en/scripts/572450-CLAUSEAGE)
 
 ## File Structure
 
 ```
-CLAUSEAGE/
+CLAUSAGE/
 ├── manifest.json      # Chrome extension manifest (Manifest V3)
 ├── content.js         # Core logic: iframe extraction, widget rendering, SPA navigation
 ├── content.css        # Widget styles with dark mode support
@@ -79,7 +79,7 @@ CLAUSEAGE/
 
 ## Privacy
 
-CLAUSEAGE does **not** collect, transmit, or store any personal data. All processing happens locally in your browser. The only data stored is the widget's screen position via `localStorage`.
+CLAUSAGE does **not** collect, transmit, or store any personal data. All processing happens locally in your browser. The only data stored is the widget's screen position via `localStorage`.
 
 [Full privacy policy](privacy-policy.html)
 
