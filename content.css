@@ -192,6 +192,11 @@
   display: none;
 }
 
+/* Default: only full row label is shown */
+.cuw-label-short {
+  display: none;
+}
+
 .cuw-balance {
   color: #22c55e;
 }
@@ -246,12 +251,14 @@
   letter-spacing: 0.2px;
 }
 
+/* Narrow-mode plan: base name only (e.g. "Pro", "Max"); multiplier like "(5x)" is hidden. */
 .cuw-narrow .cuw-plan {
-  text-transform: uppercase;
   font-weight: 600;
-  opacity: 1;
-  letter-spacing: 0.3px;
   color: #666;
+}
+
+.cuw-narrow .cuw-plan-mult-wide {
+  display: none;
 }
 
 .cuw-narrow .cuw-header {
@@ -312,6 +319,15 @@
 }
 
 .cuw-narrow .cuw-reset-short {
+  display: inline;
+}
+
+/* Swap row label: show the short form (Current, Design, Add'l Feat.) */
+.cuw-narrow .cuw-label-full {
+  display: none;
+}
+
+.cuw-narrow .cuw-label-short {
   display: inline;
 }
 

@@ -5,7 +5,10 @@
   const IFRAME_ID = 'claude-usage-iframe';
   const STORAGE_KEY = 'claude-usage-widget-pos';
   const MARGIN_RIGHT = 16;
-  const MARGIN_BOTTOM = 16;
+  // Default initial placement for users who haven't dragged the widget:
+  // the widget's top edge sits this many pixels above the window's bottom edge.
+  // Falls back to top: 0 when the window is too short to accommodate this offset.
+  const DEFAULT_TOP_FROM_BOTTOM = 500;
   const POLL_INTERVAL = 500;
   const MAX_POLLS = 40;
   const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -156,10 +159,15 @@
   // ── Position logic ──
   function applyPosition(el) {
     if (!wasDragged) {
+      // Horizontal: pin to the right edge (unchanged).
+      // Vertical: top edge sits DEFAULT_TOP_FROM_BOTTOM px above the window's bottom.
+      //   If the window is too short for that offset, clamp to top: 0 (widget hugs the top).
+      var desiredTop = window.innerHeight - DEFAULT_TOP_FROM_BOTTOM;
+      if (desiredTop < 0) desiredTop = 0;
       el.style.right = MARGIN_RIGHT + 'px';
-      el.style.bottom = MARGIN_BOTTOM + 'px';
       el.style.left = 'auto';
-      el.style.top = 'auto';
+      el.style.bottom = 'auto';
+      el.style.top = desiredTop + 'px';
       return;
     }
     var rect = el.getBoundingClientRect();
@@ -226,16 +234,22 @@
 
   // ── Parse usage data ──
   function parseUsage(doc) {
-    var data = { sections: [], plan: '' };
+    var data = { sections: [], plan: null };
     var allText = doc.body.innerText;
     if (!allText || allText.includes('Sign in') || allText.includes('Log in')) return null;
 
-    // ── Extract plan name (e.g. "Pro", "Team", "Free") ──
+    // ── Extract plan name (e.g. "Pro", "Team", "Free", "Max", "Max (5x)", "Max (10x)") ──
+    // Matches the whole cell text. The (\d+x) group captures multiplier variants for Max.
+    var planRE = /^(Free|Pro|Team|Enterprise|Max)(?:\s*\((\d+x)\))?$/i;
     var planWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
     while (planWalker.nextNode()) {
       var ptxt = planWalker.currentNode.textContent.trim();
-      if (/^(Free|Pro|Team|Enterprise|Max)$/i.test(ptxt)) {
-        data.plan = ptxt;
+      var m = ptxt.match(planRE);
+      if (m) {
+        // Normalize casing: first letter uppercase, rest lowercase (Pro, Max, Team…)
+        var base = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+        var mult = m[2] ? m[2].toLowerCase() : null;
+        data.plan = { base: base, multiplier: mult };
         break;
       }
     }
@@ -375,6 +389,17 @@
       .replace(/\s*(AM|PM)\s*$/i, '');
   }
 
+  // ── Shorten row label for narrow mode (Current session → Current, etc.) ──
+  function shortenLabel(s) {
+    var t = (s || '').trim();
+    if (/^current session$/i.test(t)) return 'Current';
+    if (/^claude design$/i.test(t)) return 'Design';
+    // "Daily included routine runs" header / or its shortened pre-render form
+    if (/^routine runs?$/i.test(t)) return "Add'l Feat.";
+    if (/^daily included routine runs?$/i.test(t)) return "Add'l Feat.";
+    return t;
+  }
+
   // ── Render data ──
   function renderData(data) {
     var body = document.getElementById('cuw-body');
@@ -390,10 +415,18 @@
     if (titleEl) {
       if (data.plan) {
         titleEl.classList.add('has-plan');
+        // Wide mode:  CLAUSAGE | Max (5x)   — literal "(5x)" matches the settings page.
+        // Narrow mode: shows just the plan base (e.g. "Max"); the multiplier span is hidden via CSS.
+        var planBase = escapeHtml(data.plan.base);
+        var planHTML = '<span class="cuw-plan-base">' + planBase + '</span>';
+        if (data.plan.multiplier) {
+          var mult = escapeHtml(data.plan.multiplier);
+          planHTML += '<span class="cuw-plan-mult-wide"> (' + mult + ')</span>';
+        }
         titleEl.innerHTML =
           '<span class="cuw-title-brand">CLAUSAGE</span>' +
           '<span class="cuw-plan-sep"> | </span>' +
-          '<span class="cuw-plan">' + escapeHtml(data.plan) + '</span>';
+          '<span class="cuw-plan">' + planHTML + '</span>';
       } else {
         titleEl.classList.remove('has-plan');
         titleEl.innerHTML = '<span class="cuw-title-brand">CLAUSAGE</span>';
@@ -412,10 +445,14 @@
       }
       var barColor = barWidth >= 90 ? '#ef4444' : barWidth >= 70 ? '#f59e0b' : '#6b8afd';
       var shortR = shortenReset(s.resetInfo);
+      var shortLbl = shortenLabel(s.label);
       html +=
         '<div class="cuw-row">' +
           '<div class="cuw-row-top">' +
-            '<span class="cuw-label">' + escapeHtml(s.label) + '</span>' +
+            '<span class="cuw-label">' +
+              '<span class="cuw-label-full">' + escapeHtml(s.label) + '</span>' +
+              '<span class="cuw-label-short">' + escapeHtml(shortLbl) + '</span>' +
+            '</span>' +
             '<span class="cuw-pct">' + escapeHtml(rightText) + '</span>' +
           '</div>' +
           '<div class="cuw-bar-track">' +
